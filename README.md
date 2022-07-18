@@ -1,6 +1,6 @@
 # react-use-page-content-navigation
 
-This package is React hook that enables content navigation based on scroll state.
+This package is a React hook that enables content navigation based on scroll state.
 
 ![react-use-page-navigation demo](.github/demo.gif)
 
