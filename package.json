@@ -1,0 +1,47 @@
+{
+  "name": "react-use-page-content-navigation",
+  "version": "1.0.4",
+  "description": "React hook that enables content navigation based on scroll state.",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "test": "jest",
+    "build": "tsc",
+    "publish": "./node_modules/.bin/prettier --write 'src/**/*.{ts,tsx}' && yarn build && npm publish && rm -rf dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxzaleski/usePageContentNavigation.git"
+  },
+  "keywords": [
+    "react-hook",
+    "scroll-hook",
+    "scroll",
+    "content-navigation",
+    "dynamic-navigation"
+  ],
+  "author": "Maximilien Zalesi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maxzaleski/usePageContentNavigation/issues"
+  },
+  "homepage": "https://github.com/maxzaleski/usePageContentNavigation#readme",
+  "devDependencies": {
+    "@babel/preset-env": "^7.18.6",
+    "@babel/preset-react": "^7.18.6",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@types/jest": "^28.1.5",
+    "@types/react": "^18.0.15",
+    "@types/react-test-renderer": "^18.0.0",
+    "babel-jest": "^28.1.3",
+    "jest": "^28.1.3",
+    "prettier": "^2.7.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-test-renderer": "^18.2.0",
+    "typescript": "^4.7.4"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}
