@@ -1,6 +1,6 @@
 {
   "name": "react-use-page-content-navigation",
-  "version": "1.0.4",
+  "version": "1.0.0",
   "description": "React hook that enables content navigation based on scroll state.",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -20,7 +20,7 @@
     "content-navigation",
     "dynamic-navigation"
   ],
-  "author": "Maximilien Zalesi",
+  "author": "Maximilien Zaleski",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/maxzaleski/usePageContentNavigation/issues"
