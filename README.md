@@ -1,76 +1,121 @@
-# react-use-page-content-navigation
+# usePageContentNavigation
 
-This package is a React hook that enables content navigation based on scroll state.
+A React hook that facilitates navigation of page content by cataloguing designated sections.
 
 ![react-use-page-navigation demo](.github/demo.gif)
 
-This example is run in a layout containing a fixed header of height 92px and a margin before content of 48px (`contentTopOffset: 140`).
-
 ## Table of Contents
 
-- [Installation](#installation) 
-- [Usage](#usage)
-  - [A Brief Explanation](#a-brief-explanation)
-  - [Returned](#a-brief-explanation)
-  - [Options](#a-brief-explanation)
-- [TypeScript Support](#typescript-support)
-- [License](#license)
+- [usePageContentNavigation](#usepagecontentnavigation)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Behaviour](#behaviour)
+    - [On Scroll](#on-scroll)
+    - [Caveat](#caveat)
+  - [Usage](#usage)
+    - [Configuration](#configuration)
+    - [Properties](#properties)
+  - [TypeScript Support](#typescript-support)
+  - [License](#license)
+
+--- 
 
 ## Installation
 
-### NPM
+Install through your package manager of choice (npm, yarn, etc)
 
 ```
-npm -i react-use-page-content-navigation
+npm -i @mzaleski/use-page-content-navigation
 ```
 
-### Yarn
+```
+yarn add @mzaleski/use-page-content-navigation
+```
 
+## Behaviour 
+
+The hook is given an array of React children where each element is expected to be a designated content section. These sections are catalogued through the `sectionTitleProp` prop. If the `diveByPropName` flag is set, the hook will dive one level to retrieve the value; this is to support the use of modular components as well as more monolithic ones. If a section is missing a DOM identifier, the hook will attribute one based on the section's title (retrieved through `sectionTitleProp`).
+
+```jsx
+function Page() {
+  ...
+
+  return (
+    <Shell>
+      <Section 
+        id="custom-id"
+        header={<Section.Header title="section1"/>} />
+      <Section header={<Section.Header title="section2"/>} />
+      <Section header={<Section.Header title="section3"/>} />
+    </Shell>
+  )
+}
 ```
-yarn add react-use-page-content-navigation
+
+> The `Shell` component is explored in the [Usage](#usage) section.
+
+The above snippet matches the configuration:
+
+```json
+{
+  "sectionTitleProp": "title",
+  "diveByPropName": "header"
+}
 ```
+
+Sections 2 & 3 will be attributed a DOM ID of `"section2-section"` & `"section3-section"` respectively whist section 1 will retain its custom ID.
+
+### On Scroll
+
+When the user scrolls, the `currentIndex` is updated to reflect the section most relevant to boundary within the viewport (see demo gif). The hook returns a setter for the purpose of application-specific behaviour such as scroll-to or state restoration through URL hash. This is by design as it allows 
+
+### Caveat
+
+This hook was designed to make use of the default overflow behaviour as it attaches a scroll listener to the `window` itself and not any element in particular. This is by design as React's event handlers must be given as props which, in my case, wasn't suitable.
 
 ## Usage
 
 ```jsx
-const {...returned} = usePageContentNavigation(props.children, {...options})
+function Shell({ children }) {
+  const {currentIndex, setCurrentIndex, navItems, mutatedChildren} = usePageContentNavigation(children, {
+    diveByPropName: "header",
+    // Modelled after demo gif:
+    // - fixed header: 92px
+    // - margin before content: 48px
+    contentTopOffset: 140
+  })
+
+  return (
+    <div className="...">
+      <shellNav items={navItems} currentIndex={currentIndex} onClick={setCurrentIndex} />
+      <ShellContent>{mutatedChildren}</ShellContent>    
+    </div>
+  )
+}
 ```
 
-### A Brief Explanation
+### Configuration
 
-The hook is given an array of React children referred to as the 'content'. 
-Each section is expected to contain the given `sectionTitleProp` unless the `nestedSectionProp` flag is set in wich case the hook will dive one level to retrieve the value.
+The hook's configuration is done through the `opts` object which has the following properties:
 
-> The hook will automatically assign each section a DOM ID based on the section title unless an ID is already provided.
+| Name | Type | Description | Default |
+|----|------|-------------| ------- |
+| `enabled?` | Boolean | Whether the hook is enabled. | `true`
+| `viewportBoundary?` | Number (float) | The boundary within the viewport to consider a section "active". | `0.3`
+| `sectionTitleProp?` | String | The property name to retrieve the section's title from. | `"title"`
+| `diveByPropName?` | String | The property name to dive into to retrieve the section's title. | `undefined`
+| `contentTopOffset?` | Number | The offset from the top of the page to the content; useful when dealing with layouts composed of `position: sticky \| fixed` elements (see demo gif) | `0`
 
-A collection of links so-to-speak is returned which contains the necessary data (DOM ID, label) associated with each section. 
-When the user scrolls, the `currentIndex` is updated to reflect the section most relevant to boundary within the viewport (see demo gif). 
+### Properties
 
-It should be mentioned that one is expected to manage the `currentIndex` if the user clicks on a mapped link. This is by design as it allows for flexible behaviour such as a scroll-to call as well as state restoration through URL hash.
+The hook returns an object with the following properties:
 
-#### Caveat
-
-This hook was designed to make use of the default overflow behaviour as it attaches a scroll listener to the `window` itself and not any element in particular. This is by design as React's event handlers must be given as props which, in my case, wasn't suitable.
-
-### Returned
-
-| Name              | Description                                                         |
-|-------------------|---------------------------------------------------------------------|
-| `contentLinks`    | An array of links to the content                                    |
-| `mutatedChildren` | The given children as clones with DOM IDs if not provided initially |
-| `currentIndex`    | The current content section index                                   |
-| `setCurrentIndex` | A setter for `currentIndex`                                         |
-
-### Options
-
-| Name                 | Description                                                                                                                                                                                                     |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `enabled?`           | Whether to enable the component. This finds usefulness in controlling which page is elligible for the behaviour.                                                                                                |
-| `sectionTitleProp`   | The property name of the section title (e.g. `<Card title="Hey" />` = `Hey`)                                                                                                                                    |
-| `nestedSectionProp?` | The property acting as parent for the actual `sectionTitleProp`. This finds usefulness with modular components which may take another as part of their layout (e.g. `<Card header={<Header title='Hey' />} />`. |
-| `viewportBoundary?`  | The viewport breakoff boundary as a float up (default: 0.3, I wouldn't recommend going below that threshold)                                                                                                       |
-| `contentTopOffset?`  | The offset prior to the content itself. This finds usefulness in layout where you may have a fixed header or another such components which may result in a skewed boundary box.                                 |
-
+| Name | Type | Description |
+|----|------|-------------| 
+| `currentIndex` | Number | The index of the section currently active. |
+| `setCurrentIndex` | Function | A setter for the `currentIndex` property; throws an error if index is out of range |
+| `navItems` | Array | An array of objects containing the section's title and DOM ID. |
+| `mutatedChildren` | React.ReactNode | To render instead of the original `children` prop. |
 
 ## TypeScript Support 
 

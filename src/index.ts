@@ -1,86 +1,111 @@
+/**
+MIT License
+
+Copyright (c) 2022 Maximilien Zaleski
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 import React from 'react';
 
+/** IUsePageContentNavigationOptions represents the hook's configuration options. */
 export interface IUsePageContentNavigationOptions {
   /** Whether to enable the hook. */
   enabled?: boolean;
-
   /**
-   * The viewport's boundary as float values. In other words,
-   * where the hook will evaluate a section's visibility.
+   * The viewport's boundary as a float. In other words, where the hook will evaluate a
+   * section's visibility.
    *
-   * The default value is 0.3.
+   * Lets assume that the boundary is set at `0.3`,
+   * the hook will evaluate whether the section is between 30% and 70% (1-0.3) of the viewport.
    *
-   * e.g. Lets assume that the boundary is set at 0.3,
-   * the hook will evaluate whether the section is between 30% and (1 - 0.3) 70%
-   * of the viewport.
+   * @default
+   * 0.3
    */
   viewportBoundary?: number;
   /**
    * How many pixels to offset the boundary.
    *
-   * e.g. a fixed header of 92px with a content margin of 48px would result in an
-   * offset of 140px.
-   * */
-  contentTopOffset?: number;
-
-  /** Represents the component prop. that dictates the section's title. */
-  sectionTitleProp: string;
-  /**
-   * If the `sectionTitleProp` is set but on a child element such as a
-   * modularity-motivated header, then this option enables a single-level dive
-   * in order to retrieve it.
-   *
-   * @example
-   * <Section header={<Header title="My Title" />} />
-   *
-   * Options:
-   * ↳ sectionTitleProp: "title"
-   * ↳ nestedSectionProp: "header"
+   * A fixed header of `92px` with a content margin of `48px` would result in an offset of `140px`.
    */
-  nestedSectionProp?: string;
+  contentTopOffset?: number;
+  /**
+   * Represents the component property that dictates the section's title.
+   *
+   * @default
+   * "title"
+   */
+  sectionTitlePropName?: string;
+  /**
+   * If the `sectionTitlePropName` is set but on a child element such as a modularity-motivated
+   * header, then this option enables a single-level dive in order to retrieve it.
+   *
+   * For example:
+   * `<Section header={<Header title="My Title" />} />`
+   *
+   * Props:
+   * - `sectionTitlePropName`: "title"
+   * - `diveByPropName`: "header"
+   */
+  diveByPropName?: string;
 }
 
-export interface IUsePageContentNavigationLink {
-  /** The link's display value. */
+/** IUsePageContentNavigationItem represents a navigation item produced by the hook. */
+export interface IUsePageContentNavigationItem {
+  /** The item's display value. */
   label: string;
-  /** The link's DOM id. */
+  /** The item's DOM identifier. */
   scrollTo: string;
 }
 
-export interface IUsePageContentNavigationResult {
+/** IUsePageContentNavigationState represents the hook's exported state. */
+export interface IUsePageContentNavigationState {
   /** The current content index. */
   currentIndex: number;
   /** The links representative of the page content. */
-  contentLinks: IUsePageContentNavigationLink[];
+  navItems: IUsePageContentNavigationItem[];
   /**
-   * If your content sections did not have a DOM ID assigned to them prior to
-   * this hook, you will need to render these as opposed to the original.
+   * The actual content mutated to include missing DOM identifiers. These should be rendered over
+   * the initial `children` prop.
    */
   mutatedChildren: React.ReactNode;
-
   /** Setter for `currentIndex`. */
   setCurrentIndex(index: number): void;
 }
 
 /**
- * usePageContentNavigation is a hook that enables dynamic content navigation
- * based on the scroll state.
+ * usePageContentNavigation is a hook that enables dynamic content navigation based on the scroll
+ * state.
  *
  * @param children The content sections to be navigated.
- * @param options The configuration options for the hook.
+ * @param opts The hook's configuration options.
  */
 export function usePageContentNavigation(
   children: React.ReactNode,
   {
-    enabled,
-
     viewportBoundary = 0.3,
     contentTopOffset = 0,
-
-    sectionTitleProp,
-    nestedSectionProp,
+    sectionTitlePropName = 'title',
+    enabled = true,
+    diveByPropName,
   }: IUsePageContentNavigationOptions
-): IUsePageContentNavigationResult {
+): IUsePageContentNavigationState {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [previousScrollTop, setPreviousScrollTop] = React.useState(0);
   const [childrenAsReactElement, setChildrenAsReactElement] = React.useState(
@@ -88,51 +113,49 @@ export function usePageContentNavigation(
       ? [...children]
       : [children]) as React.ReactElement[]
   );
-  const [contentLinks, setContentLinks] = React.useState<
-    IUsePageContentNavigationLink[]
+  const [navItems, setNavItems] = React.useState<
+    IUsePageContentNavigationItem[]
   >([]);
 
-  // [Setup] Scroll listener
-  React.useEffect(() => {
-    if (!enabled) return;
+  if (viewportBoundary < 0 || viewportBoundary > 1)
+    throw new ViewportBoundaryError();
 
-    // ↳ Event callback.
-    function handleScroll(e: Event) {
+  const handleScroll = React.useCallback(
+    (e: Event) => {
       e.preventDefault();
 
-      // Scrollbar is at the top, select the first section.
+      // [scrollbar: at the top]
       if (window.scrollY === 0) setCurrentIndex(0);
-      // Scrollbar is at the bottom, select the last section.
+      // [scrollbar: at the bottom]
       else if (
         window.scrollY + window.innerHeight ===
         document.body.scrollHeight
       )
-        setCurrentIndex(contentLinks.length - 1);
-      // Scrollbar is at neither extreme.
-      else if (contentLinks.length) {
+        setCurrentIndex(navItems.length - 1);
+      // [scrollbar: neither extreme]
+      else if (navItems.length) {
         const scrollDirection =
           window.scrollY < previousScrollTop ? 'up' : 'down';
 
-        // Guard to prevent a runtime error resulting from the `currentIndex`
-        // being set to an extreme. This can happen when the setter is called
-        // from outside the hook.
+        // Guard to prevent a runtime error resulting from the `currentIndex` being set to an
+        // extreme. This can happen when the setter is called from outside the hook.
         if (
           (scrollDirection === 'up' && currentIndex > 0) ||
-          (scrollDirection === 'down' && currentIndex < contentLinks.length - 1)
+          (scrollDirection === 'down' && currentIndex < navItems.length - 1)
         ) {
           // Look at either the next or previous section.
-          const selectedRect = document.getElementById(
-            contentLinks[currentIndex + (scrollDirection === 'up' ? -1 : 1)]
-              .scrollTo
-          ) as HTMLElement;
-          // User is scrolling down.
+          const id =
+            navItems[currentIndex + (scrollDirection === 'up' ? -1 : 1)]
+              .scrollTo;
+          const selectedRect = document.getElementById(id) as HTMLElement;
+          // [scrolling: downwards]
           if (
             scrollDirection === 'down' &&
             selectedRect.offsetTop - window.scrollY - contentTopOffset <=
               window.innerHeight * viewportBoundary - contentTopOffset
           )
             setCurrentIndex(currentIndex + 1);
-          // User is scrolling up.
+          // [scrolling: upwards]
           else if (
             scrollDirection === 'up' &&
             selectedRect.getBoundingClientRect().bottom >=
@@ -143,70 +166,101 @@ export function usePageContentNavigation(
       }
 
       setPreviousScrollTop(window.scrollY);
-    }
+    },
+    [currentIndex, previousScrollTop, navItems]
+  );
 
-    // ↳ Listen to scroll events.
-    window.addEventListener('scroll', handleScroll);
-
-    // ↳ Unregister the listener on component unmount.
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [
-    contentLinks,
-    currentIndex,
-    previousScrollTop,
-    viewportBoundary,
-    enabled,
-  ]);
-
-  // [Setup] Content links & children mutation.
+  // [setup] Scroll listener.
   React.useEffect(() => {
     if (!enabled) return;
 
-    // Validate the children as we cannot allow any outlier or the hook won't
-    // behave properly due to the nature of its at-extreme logic.
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  // [setup] items & children mutation.
+  React.useEffect(() => {
+    if (!enabled) return;
+
+    // Validate the children as we cannot allow any outlier as the hook won't behave properly due to
+    // the nature of its at-extreme logic.
     childrenAsReactElement.forEach((child, index) => {
-      // If the nested flag is set, dive into the child's props;
+      // If the dive flag is set, dive into the child's props;
       // otherwise, check for the prop directly.
-      const element = nestedSectionProp
-        ? child.props[nestedSectionProp]
-        : child;
-      if (!element || typeof element.props[sectionTitleProp] !== 'string')
-        throw new Error(
-          `[usePageContentNavigation] Element at [${index}] does not have the '${sectionTitleProp}' prop.`
-        );
+      const element = diveByPropName ? child.props[diveByPropName] : child;
+      if (!element || typeof element.props[sectionTitlePropName] !== 'string')
+        throw new SectionTitlePropError(index, sectionTitlePropName);
     });
     // Map the filtered elements to recognisable links.
-    const contentLinks =
-      childrenAsReactElement.map<IUsePageContentNavigationLink>(
-        ({ props }) => ({
-          label: props[sectionTitleProp],
+    const items = childrenAsReactElement.map<IUsePageContentNavigationItem>(
+      ({ props }) => {
+        const title = props[sectionTitlePropName];
+        return {
+          label: title,
           scrollTo:
-            props.id ||
-            props[sectionTitleProp].toLowerCase().replaceAll(' ', '-') +
-              '-section',
-        })
-      );
-    setContentLinks(contentLinks);
-
-    // Set the mutated children.
-    setChildrenAsReactElement(
-      childrenAsReactElement.map((child, index) => {
-        if (!child.props.id) {
-          const id = contentLinks[index].scrollTo;
-          return React.cloneElement(child, {
-            key: id,
-            id,
-          });
-        }
-        return child;
-      })
+            props.id || title.toLowerCase().replaceAll(' ', '-') + '-section',
+        };
+      }
     );
+    setNavItems(items);
+
+    // Mutate the children to include missing DOM identifiers.
+    // The use of `forEach` is preferred over `map` as it allows for the initial React keys to be
+    // preserved.
+    const mutatedChildren: React.ReactElement[] = [];
+    childrenAsReactElement.forEach((child, index) => {
+      let addition = child;
+      if (!child.props.id) {
+        addition = React.cloneElement(addition, { id: items[index].scrollTo });
+      }
+      mutatedChildren.push(addition);
+    });
+    setChildrenAsReactElement(mutatedChildren);
   }, [children, enabled]);
+
+  const setCurrentIndexExported = React.useCallback(
+    (index: number) => {
+      if (index < 0 || index >= navItems.length) throw new IndexOutOfBoundsError(index);
+      setCurrentIndex(index);
+    },
+    [navItems]
+  );
 
   return {
     currentIndex,
-    contentLinks,
-    setCurrentIndex,
+    navItems,
     mutatedChildren: childrenAsReactElement,
+    setCurrentIndex: setCurrentIndexExported,
   };
+}
+
+/**
+ * SectionTitlePropError is thrown when the `sectionTitlePropName` is not available on the source
+ * element.
+ */
+export class SectionTitlePropError extends Error {
+  constructor(index: number, propName: string) {
+    super(
+      `[usePageContentNavigation] Element at [${index}] does not have the '${propName}' prop.`
+    );
+    this.name = 'SectionTitlePropError';
+  }
+}
+
+/** ViewportBoundaryError is thrown when the `viewportBoundary` option is invalid. */
+export class ViewportBoundaryError extends Error {
+  constructor() {
+    super(
+      '[usePageContentNavigation] `viewportBoundary` must be a float between 0 and 1.'
+    );
+    this.name = 'ViewportBoundaryError';
+  }
+}
+
+/** IndexOutOfBoundsError is thrown when `setCurrentIndex` receives an invalid value. */
+export class IndexOutOfBoundsError extends Error {
+  constructor(index: number) {
+    super(`[usePageContentNavigation] Index '${index}' is out of bounds.`);
+    this.name = 'IndexOutOfBoundsError';
+  }
 }
